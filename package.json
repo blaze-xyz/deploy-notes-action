@@ -1,0 +1,25 @@
+{
+  "name": "deploy-notes-action",
+  "version": "1.0.0",
+  "description": "GitHub Action to generate human-readable deploy notes for pull requests",
+  "main": "action/generate-deploy-note.js",
+  "dependencies": {
+    "@octokit/rest": "^19.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-org/deploy-notes-action.git"
+  },
+  "keywords": [
+    "github",
+    "actions",
+    "deploy",
+    "notes",
+    "automation"
+  ],
+  "author": "Your Organization",
+  "license": "MIT"
+}
+

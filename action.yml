@@ -1,0 +1,47 @@
+name: 'Deploy Notes Generator'
+description: 'Automatically generates human-readable deploy notes for pull requests'
+author: 'Your Organization'
+
+inputs:
+  github-token:
+    description: 'GitHub token for API access'
+    required: true
+  deepseek-api-key:
+    description: 'DeepSeek API key for generating deploy notes'
+    required: true
+  pr-number:
+    description: 'Pull request number'
+    required: true
+  repository:
+    description: 'Repository name with owner (e.g., owner/repo)'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/action
+        npm install
+        
+    - name: Generate Deploy Note
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        DEEPSEEK_API_KEY: ${{ inputs.deepseek-api-key }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        REPO_OWNER: ${{ inputs.repository.split('/')[0] }}
+        REPO_NAME: ${{ inputs.repository.split('/')[1] }}
+      run: |
+        cd ${{ github.action_path }}/action
+        node generate-deploy-note.js
+
+branding:
+  icon: 'file-text'
+  color: 'blue'
