@@ -10,9 +10,14 @@ A GitHub Action that automatically generates human-readable deploy notes for pul
 - Adds deploy notes as PR comments
 - Saves deploy notes to a consistent location in your repository
 
-## Usage
+## Setup Instructions for All Repositories
 
-1. Create a workflow file in your repository (e.g., `.github/workflows/deploy-notes.yml`):
+### 1. Add the workflow file
+
+For each repository where you want to use this action, create a file at:
+`.github/workflows/generate-deploy-notes.yml`
+
+With the following content:
 
 ```yaml
 name: Generate Deploy Notes
@@ -23,17 +28,25 @@ on:
     branches:
       - main
 
+permissions:
+  contents: write
+  pull-requests: write
+
 jobs:
   generate-deploy-notes:
     runs-on: ubuntu-latest
+    # Only run if the PR has the 'needs-deploy-note' label or is being merged into main
     if: ${{ github.event.pull_request.base.ref == 'main' && (contains(github.event.pull_request.labels.*.name, 'needs-deploy-note') || github.event.action == 'opened') }}
     
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
-        
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
       - name: Generate Deploy Note
-        uses: your-org/deploy-notes-action@v1
+        uses: blaze-xyz/deploy-notes-action@v1.0.1
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           deepseek-api-key: ${{ secrets.DEEPSEEK_API_KEY }}
@@ -41,12 +54,39 @@ jobs:
           repository: ${{ github.repository }}
 ```
 
-2. Add your DeepSeek API key to your repository secrets as `DEEPSEEK_API_KEY`
+### 2. Add the DeepSeek API Key
 
-3. The action will now:
-   - Run on new PRs
-   - Run when PRs are updated
-   - Run when PRs are labeled with 'needs-deploy-note'
+Add your DeepSeek API key to GitHub repository secrets as `DEEPSEEK_API_KEY`.
+
+You can do this by:
+1. Go to your repository on GitHub
+2. Click on "Settings" → "Secrets and variables" → "Actions"
+3. Click "New repository secret"
+4. Name: `DEEPSEEK_API_KEY`
+5. Value: Your DeepSeek API key
+
+### 3. Create Directory for Deploy Notes (Optional)
+
+For consistency, you may want to create a directory in each repository where deploy notes will be stored:
+
+```
+mkdir -p dev-utils/deployNotes
+```
+
+And add a placeholder README to it:
+
+```
+# Deploy Notes
+
+This directory contains automated deploy notes for pull requests.
+```
+
+## Triggering Deploy Notes Generation
+
+The action will run automatically in these cases:
+- When a PR is opened against the main branch
+- When a PR is updated (new commits pushed)
+- When a PR is labeled with 'needs-deploy-note'
 
 ## Inputs
 
@@ -77,17 +117,16 @@ The action generates deploy notes in the following format:
 
 ## Development
 
+To modify this action:
+
 1. Clone this repository
-2. Install dependencies: `cd action && npm install`
-3. Make your changes
-4. Test locally by setting up environment variables:
+2. Make your changes
+3. Create a new version tag:
    ```bash
-   export GITHUB_TOKEN=your_token
-   export DEEPSEEK_API_KEY=your_key
-   export PR_NUMBER=123
-   export REPO_OWNER=your-org
-   export REPO_NAME=your-repo
+   git tag -a v1.x.x -m "Description of changes"
+   git push origin v1.x.x
    ```
+4. Update all workflows to use the new version
 
 ## License
 
