@@ -1,6 +1,6 @@
 name: 'Deploy Notes Generator'
 description: 'Automatically generates human-readable deploy notes for pull requests'
-author: 'Your Organization'
+author: 'Blaze (@blaze-xyz)'
 
 inputs:
   github-token:
