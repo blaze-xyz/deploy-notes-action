@@ -36,8 +36,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         DEEPSEEK_API_KEY: ${{ inputs.deepseek-api-key }}
         PR_NUMBER: ${{ inputs.pr-number }}
-        REPO_OWNER: ${{ inputs.repository.split('/')[0] }}
-        REPO_NAME: ${{ inputs.repository.split('/')[1] }}
+        REPOSITORY: ${{ inputs.repository }}
       run: |
         cd ${{ github.action_path }}/action
         node generate-deploy-note.js

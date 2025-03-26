@@ -10,8 +10,7 @@ const octokit = new Octokit({
 
 // PR details from environment variables
 const prNumber = process.env.PR_NUMBER;
-const repoOwner = process.env.REPO_OWNER;
-const repoName = process.env.REPO_NAME;
+const [repoOwner, repoName] = process.env.REPOSITORY.split("/");
 
 async function main() {
   try {
@@ -248,4 +247,3 @@ This note has been saved to \`dev-utils/deployNotes/${prNumber}.md\` and committ
 
 // Run the main function
 main();
-
