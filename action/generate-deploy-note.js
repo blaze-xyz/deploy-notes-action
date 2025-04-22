@@ -173,6 +173,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
     // Get the current file content if it exists (to check if we need to update)
     let currentContent = "";
+    let sha = null;
     try {
       const { data } = await octokit.repos.getContent({
         owner: repoOwner,
@@ -183,6 +184,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
       if (data.content) {
         currentContent = Buffer.from(data.content, "base64").toString();
+        sha = data.sha; // Store the file's SHA
       }
     } catch (error) {
       // File doesn't exist yet, that's fine
@@ -198,7 +200,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
     // Create or update the file in the repository
     const commitMessage = `Add deploy note for PR #${prNumber}`;
 
-    await octokit.repos.createOrUpdateFileContents({
+    const params = {
       owner: repoOwner,
       repo: repoName,
       path: filePath,
@@ -213,7 +215,14 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
         name: "GitHub Actions",
         email: "actions@github.com",
       },
-    });
+    };
+
+    // Only include sha if the file exists
+    if (sha) {
+      params.sha = sha;
+    }
+
+    await octokit.repos.createOrUpdateFileContents(params);
 
     console.log(`Deploy note committed to branch: ${context.branch_name}`);
   } catch (error) {
