@@ -169,7 +169,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
     // Path to the deploy note file
     const filePath = `dev-utils/deployNotes/${prNumber}.md`;
 
-    console.log(`Creating deploy note file: ${filePath}`);
+    console.log(`Checking for existing deploy note: ${filePath}`);
 
     // Get the current file content if it exists (to check if we need to update)
     let currentContent = "";
@@ -184,16 +184,21 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
       if (data.content) {
         currentContent = Buffer.from(data.content, "base64").toString();
-        sha = data.sha; // Store the file's SHA
+        sha = data.sha;
+        console.log("Found existing deploy note");
       }
     } catch (error) {
-      // File doesn't exist yet, that's fine
-      console.log(`File doesn't exist yet, will create it: ${error.message}`);
+      if (error.status === 404) {
+        console.log("No existing deploy note found, will create new one");
+      } else {
+        console.error("Error checking for existing deploy note:", error);
+        throw error;
+      }
     }
 
     // If content is the same, no need to commit
     if (currentContent === content) {
-      console.log("Deploy note content unchanged, skipping commit");
+      console.log("Deploy note content unchanged, exiting successfully");
       return;
     }
 
@@ -223,10 +228,13 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
     }
 
     await octokit.repos.createOrUpdateFileContents(params);
-
     console.log(`Deploy note committed to branch: ${context.branch_name}`);
+
+    // Also comment on the PR
+    await commentOnPR(prNumber, content);
+    console.log("Added deploy note as PR comment");
   } catch (error) {
-    console.error("Error committing deploy note:", error);
+    console.error("Error handling deploy note:", error);
     throw error;
   }
 }
