@@ -73,6 +73,20 @@ async function main() {
 
 async function generateDeployNoteWithDeepSeek(context) {
   try {
+    // Check for no-deploy-note-tests tag
+    const hasNoTestsTag = context.pr_body?.includes("no-deploy-note-tests");
+
+    if (hasNoTestsTag) {
+      // Return the simple template for no-tests case
+      return `### [${context.pr_title}](${context.pr_url})
+
+**Test Script**
+- No additional tests required
+
+**Launch Requirements**
+- No special requirements`;
+    }
+
     const prompt = `
     You are an expert developer tasked with creating a deploy note for a pull request.
     Your goal is to create simple, concrete test steps that can be executed without interpretation.
