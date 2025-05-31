@@ -64,7 +64,9 @@ async function main() {
     // Comment on the PR
     await commentOnPR(prNumber, deployNote);
 
-    console.log("Deploy note generated successfully!");
+    console.log(
+      "Deploy note job completed successfully. See comments above for hints as to action taken!"
+    );
   } catch (error) {
     console.error("Error generating deploy note:", error);
     process.exit(1);
@@ -84,6 +86,7 @@ async function generateDeployNoteWithDeepSeek(context) {
     4. Remove any steps that require subjective interpretation
     5. Don't include steps that can't be clearly tested
     6. Focus on what a real human would actually test, not theoretical validations
+    7. NEVER EVER return an empty response. If in fact there is nothing to test, then return a deploy note that says "Nothing to test" in the **Test Script** section.
     
     Here's the information about the PR:
     - Title: ${context.pr_title}
@@ -106,8 +109,8 @@ async function generateDeployNoteWithDeepSeek(context) {
     
     **Test Script**
     
-    1. [Simple, concrete action]
-    2. [Expected result in plain language]
+    1. [Simple, concrete action. Describes test case in full detail, also explains expected result.]
+    2. [Second test case descrbied in full detail, also explains expected result.]
     
     **Launch Requirements**
     
@@ -154,6 +157,8 @@ async function generateDeployNoteWithDeepSeek(context) {
       }
     );
 
+    console.dir(response.data, { depth: null });
+
     return response.data.choices[0].message.content.trim();
   } catch (error) {
     console.error(
@@ -198,7 +203,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
     // If content is the same, no need to commit
     if (currentContent === content) {
-      console.log("Deploy note content unchanged, exiting successfully");
+      console.log("Deploy note content unchanged, exiting without commit");
       return;
     }
 
