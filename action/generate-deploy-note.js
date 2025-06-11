@@ -86,7 +86,7 @@ async function generateDeployNoteWithDeepSeek(context) {
     4. Remove any steps that require subjective interpretation
     5. Don't include steps that can't be clearly tested
     6. Focus on what a real human would actually test, not theoretical validations
-    7. NEVER EVER return an empty response. If in fact there is nothing to test, then return a deploy note that says "Nothing to test" in the **Test Script** section.
+    7. NEVER EVER return an empty response. If in fact there is nothing to test, then return a deploy note that says "Nothing to test" in the **Test Script** section. We really really mean this. Never ever, ever, ever, ever return an empty string. At the very least, return the "null deploy note".
     
     Here's the information about the PR:
     - Title: ${context.pr_title}
@@ -127,6 +127,20 @@ async function generateDeployNoteWithDeepSeek(context) {
     - "Verify system validation"
     - "Check that the localization works"
     - "Ensure proper data handling"
+    ---------------------------------------------------------------------------------------------------
+    NULL DEPLOY NOTE EXAMPLE:
+    ### [PR Title](PR URL)
+
+    **Test Script**
+
+    Nothing to test
+
+    **Launch Requirements**
+
+    No special requirements
+
+    ---------------------------------------------------------------------------------------------------
+
     `;
 
     // Check if we have an API key
