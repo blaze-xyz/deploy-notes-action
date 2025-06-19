@@ -79,6 +79,12 @@ async function generateDeployNoteWithDeepSeek(context) {
     You are an expert developer tasked with creating a deploy note for a pull request.
     Your goal is to create simple, concrete test steps that can be executed without interpretation.
     
+    🛑 CRITICAL REQUIREMENT - NEVER RETURN EMPTY OUTPUT 🛑
+    - YOU MUST ALWAYS RETURN A PROPERLY FORMATTED DEPLOY NOTE
+    - IF THERE ARE NO TESTS TO RUN, USE THE NULL DEPLOY NOTE FORMAT (SHOWN BELOW)
+    - AN EMPTY RESPONSE IS A FAILURE - ALWAYS PROVIDE CONTENT
+    - DEFAULT TO THE NULL DEPLOY NOTE IF UNSURE
+    
     IMPORTANT GUIDELINES:
     1. Write test steps that are mechanically executable - no thinking or interpretation should be needed
     2. Use simple, human language - avoid technical jargon unless absolutely necessary
@@ -86,7 +92,7 @@ async function generateDeployNoteWithDeepSeek(context) {
     4. Remove any steps that require subjective interpretation
     5. Don't include steps that can't be clearly tested
     6. Focus on what a real human would actually test, not theoretical validations
-    7. NEVER EVER return an empty response. If in fact there is nothing to test, then return a deploy note that says "Nothing to test" in the **Test Script** section. We really really mean this. Never ever, ever, ever, ever return an empty string. At the very least, return the "null deploy note".
+    7. ALWAYS start with the null deploy note as your baseline and only modify it if there are actual test steps
     
     Here's the information about the PR:
     - Title: ${context.pr_title}
@@ -127,8 +133,9 @@ async function generateDeployNoteWithDeepSeek(context) {
     - "Verify system validation"
     - "Check that the localization works"
     - "Ensure proper data handling"
+    
     ---------------------------------------------------------------------------------------------------
-    NULL DEPLOY NOTE EXAMPLE:
+    🔴 NULL DEPLOY NOTE (USE THIS WHEN NO TESTS ARE NEEDED):
     ### [PR Title](PR URL)
 
     **Test Script**
@@ -138,9 +145,9 @@ async function generateDeployNoteWithDeepSeek(context) {
     **Launch Requirements**
 
     No special requirements
-
     ---------------------------------------------------------------------------------------------------
-
+    
+    REMEMBER: NEVER RETURN AN EMPTY RESPONSE. IF IN DOUBT, USE THE NULL DEPLOY NOTE ABOVE.
     `;
 
     // Check if we have an API key
@@ -173,7 +180,18 @@ async function generateDeployNoteWithDeepSeek(context) {
 
     console.dir(response.data, { depth: null });
 
-    return response.data.choices[0].message.content.trim();
+    let deployNote = response.data.choices[0].message.content.trim();
+    
+    // Fallback to null deploy note if empty
+    if (!deployNote || deployNote.trim() === '') {
+      console.warn("WARNING: AI returned empty response. Using null deploy note.");
+      deployNote = getNullDeployNote(context);
+    }
+    
+    // Validate the deploy note
+    validateDeployNote(deployNote);
+    
+    return deployNote;
   } catch (error) {
     console.error(
       "Error calling DeepSeek API:",
@@ -181,6 +199,59 @@ async function generateDeployNoteWithDeepSeek(context) {
     );
     throw new Error("Failed to generate deploy note with DeepSeek API");
   }
+}
+
+function getNullDeployNote(context) {
+  return `### [${context.pr_title}](${context.pr_url})
+
+**Test Script**
+
+Nothing to test
+
+**Launch Requirements**
+
+No special requirements`;
+}
+
+function validateDeployNote(deployNote) {
+  // Check if deploy note is empty or just whitespace
+  if (!deployNote || deployNote.trim() === '') {
+    console.error("ERROR: Deploy note is empty!");
+    throw new Error("Deploy note cannot be empty. The AI must return a properly formatted deploy note.");
+  }
+  
+  // Check if deploy note contains required sections
+  const requiredSections = ['**Test Script**', '**Launch Requirements**'];
+  const missSections = [];
+  
+  for (const section of requiredSections) {
+    if (!deployNote.includes(section)) {
+      missSections.push(section);
+    }
+  }
+  
+  if (missSections.length > 0) {
+    console.error(`ERROR: Deploy note is missing required sections: ${missSections.join(', ')}`);
+    throw new Error(`Deploy note must contain all required sections: ${requiredSections.join(', ')}`);
+  }
+  
+  // Check if it has a title (starts with ###)
+  if (!deployNote.includes('###')) {
+    console.error("ERROR: Deploy note is missing PR title header");
+    throw new Error("Deploy note must start with a PR title in format: ### [PR Title](PR URL)");
+  }
+  
+  // Check if Test Script section has content
+  const testScriptMatch = deployNote.match(/\*\*Test Script\*\*\s*\n\s*([\s\S]*?)\s*\*\*Launch Requirements\*\*/);
+  if (testScriptMatch) {
+    const testContent = testScriptMatch[1].trim();
+    if (!testContent) {
+      console.error("ERROR: Test Script section is empty");
+      throw new Error("Test Script section must contain content (at minimum 'Nothing to test')");
+    }
+  }
+  
+  console.log("✅ Deploy note validation passed");
 }
 
 async function saveAndCommitDeployNote(prNumber, content, context) {
