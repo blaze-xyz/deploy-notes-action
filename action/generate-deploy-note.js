@@ -3,6 +3,22 @@ const { Octokit } = require("@octokit/rest");
 const fs = require("fs");
 const path = require("path");
 
+// Verify required environment variables
+if (!process.env.GITHUB_TOKEN) {
+  console.error("❌ Error: GITHUB_TOKEN environment variable is not set");
+  process.exit(1);
+}
+
+if (!process.env.PR_NUMBER) {
+  console.error("❌ Error: PR_NUMBER environment variable is not set");
+  process.exit(1);
+}
+
+if (!process.env.REPOSITORY) {
+  console.error("❌ Error: REPOSITORY environment variable is not set");
+  process.exit(1);
+}
+
 // Initialize GitHub client
 const octokit = new Octokit({
   auth: process.env.GITHUB_TOKEN,
@@ -13,6 +29,10 @@ const prNumber = process.env.PR_NUMBER;
 const [repoOwner, repoName] = process.env.REPOSITORY.split("/");
 
 async function main() {
+  let deployNoteGenerated = false;
+  let deployNoteSaved = false;
+  let prCommented = false;
+  
   try {
     console.log(`Generating deploy note for PR #${prNumber}`);
 
@@ -57,18 +77,35 @@ async function main() {
 
     // Call DeepSeek API to generate deploy note
     const deployNote = await generateDeployNoteWithDeepSeek(context);
+    
+    // Verify deploy note was generated
+    if (!deployNote || deployNote.trim() === '') {
+      throw new Error("Deploy note generation failed - received empty content");
+    }
+    deployNoteGenerated = true;
+    console.log("✅ Deploy note generated successfully");
 
     // Save and commit the deploy note to the PR branch
     await saveAndCommitDeployNote(prNumber, deployNote, context);
+    deployNoteSaved = true;
+    console.log("✅ Deploy note saved and committed successfully");
 
     // Comment on the PR
     await commentOnPR(prNumber, deployNote);
+    prCommented = true;
+    console.log("✅ PR comment added successfully");
+
+    // Final verification
+    if (!deployNoteGenerated || !deployNoteSaved || !prCommented) {
+      throw new Error(`Deploy note process incomplete: generated=${deployNoteGenerated}, saved=${deployNoteSaved}, commented=${prCommented}`);
+    }
 
     console.log(
-      "Deploy note job completed successfully. See comments above for hints as to action taken!"
+      "✅ Deploy note job completed successfully. All steps verified!"
     );
   } catch (error) {
-    console.error("Error generating deploy note:", error);
+    console.error("❌ Error generating deploy note:", error);
+    console.error(`Process status: generated=${deployNoteGenerated}, saved=${deployNoteSaved}, commented=${prCommented}`);
     process.exit(1);
   }
 }
@@ -288,8 +325,8 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
     // If content is the same, no need to commit
     if (currentContent === content) {
-      console.log("Deploy note content unchanged, exiting without commit");
-      return;
+      console.log("Deploy note content unchanged, skipping commit");
+      return true; // Return success even if no commit needed
     }
 
     // Create or update the file in the repository
@@ -317,20 +354,26 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
       params.sha = sha;
     }
 
-    await octokit.repos.createOrUpdateFileContents(params);
-    console.log(`Deploy note committed to branch: ${context.branch_name}`);
-
-    // Also comment on the PR
-    await commentOnPR(prNumber, content);
-    console.log("Added deploy note as PR comment");
+    const result = await octokit.repos.createOrUpdateFileContents(params);
+    
+    // Verify the file was created/updated
+    if (!result || !result.data || !result.data.commit) {
+      throw new Error("Failed to create or update deploy note file - no commit data returned");
+    }
+    
+    console.log(`✅ Deploy note committed to branch: ${context.branch_name}`);
+    console.log(`   Commit SHA: ${result.data.commit.sha}`);
+    
+    return true;
   } catch (error) {
-    console.error("Error handling deploy note:", error);
-    throw error;
+    console.error("❌ Error saving deploy note:", error);
+    throw new Error(`Failed to save deploy note: ${error.message}`);
   }
 }
 
 async function commentOnPR(prNumber, deployNote) {
-  const comment = `
+  try {
+    const comment = `
 ## Deploy Note Generated
 
 A deploy note has been automatically generated for this PR:
@@ -342,14 +385,24 @@ ${deployNote}
 This note has been saved to \`dev-utils/deployNotes/${prNumber}.md\` and committed to this PR branch.
 `;
 
-  await octokit.issues.createComment({
-    owner: repoOwner,
-    repo: repoName,
-    issue_number: prNumber,
-    body: comment,
-  });
+    const result = await octokit.issues.createComment({
+      owner: repoOwner,
+      repo: repoName,
+      issue_number: prNumber,
+      body: comment,
+    });
+    
+    // Verify comment was created
+    if (!result || !result.data || !result.data.id) {
+      throw new Error("Failed to create PR comment - no comment ID returned");
+    }
 
-  console.log("Comment added to PR");
+    console.log(`✅ Comment added to PR with ID: ${result.data.id}`);
+    return true;
+  } catch (error) {
+    console.error("❌ Error adding comment to PR:", error);
+    throw new Error(`Failed to add comment to PR: ${error.message}`);
+  }
 }
 
 // Run the main function
