@@ -181,16 +181,18 @@ async function generateDeployNoteWithDeepSeek(context) {
     console.dir(response.data, { depth: null });
 
     let deployNote = response.data.choices[0].message.content.trim();
-    
+
     // Fallback to null deploy note if empty
-    if (!deployNote || deployNote.trim() === '') {
-      console.warn("WARNING: AI returned empty response. Using null deploy note.");
+    if (!deployNote || deployNote.trim() === "") {
+      console.warn(
+        "WARNING: AI returned empty response. Using null deploy note."
+      );
       deployNote = getNullDeployNote(context);
     }
-    
+
     // Validate the deploy note
     validateDeployNote(deployNote);
-    
+
     return deployNote;
   } catch (error) {
     console.error(
@@ -215,42 +217,58 @@ No special requirements`;
 
 function validateDeployNote(deployNote) {
   // Check if deploy note is empty or just whitespace
-  if (!deployNote || deployNote.trim() === '') {
+  if (!deployNote || deployNote.trim() === "") {
     console.error("ERROR: Deploy note is empty!");
-    throw new Error("Deploy note cannot be empty. The AI must return a properly formatted deploy note.");
+    throw new Error(
+      "Deploy note cannot be empty. The AI must return a properly formatted deploy note."
+    );
   }
-  
+
   // Check if deploy note contains required sections
-  const requiredSections = ['**Test Script**', '**Launch Requirements**'];
+  const requiredSections = ["**Test Script**", "**Launch Requirements**"];
   const missSections = [];
-  
+
   for (const section of requiredSections) {
     if (!deployNote.includes(section)) {
       missSections.push(section);
     }
   }
-  
+
   if (missSections.length > 0) {
-    console.error(`ERROR: Deploy note is missing required sections: ${missSections.join(', ')}`);
-    throw new Error(`Deploy note must contain all required sections: ${requiredSections.join(', ')}`);
+    console.error(
+      `ERROR: Deploy note is missing required sections: ${missSections.join(
+        ", "
+      )}`
+    );
+    throw new Error(
+      `Deploy note must contain all required sections: ${requiredSections.join(
+        ", "
+      )}`
+    );
   }
-  
+
   // Check if it has a title (starts with ###)
-  if (!deployNote.includes('###')) {
+  if (!deployNote.includes("###")) {
     console.error("ERROR: Deploy note is missing PR title header");
-    throw new Error("Deploy note must start with a PR title in format: ### [PR Title](PR URL)");
+    throw new Error(
+      "Deploy note must start with a PR title in format: ### [PR Title](PR URL)"
+    );
   }
-  
+
   // Check if Test Script section has content
-  const testScriptMatch = deployNote.match(/\*\*Test Script\*\*\s*\n\s*([\s\S]*?)\s*\*\*Launch Requirements\*\*/);
+  const testScriptMatch = deployNote.match(
+    /\*\*Test Script\*\*\s*\n\s*([\s\S]*?)\s*\*\*Launch Requirements\*\*/
+  );
   if (testScriptMatch) {
     const testContent = testScriptMatch[1].trim();
     if (!testContent) {
       console.error("ERROR: Test Script section is empty");
-      throw new Error("Test Script section must contain content (at minimum 'Nothing to test')");
+      throw new Error(
+        "Test Script section must contain content (at minimum 'Nothing to test')"
+      );
     }
   }
-  
+
   console.log("✅ Deploy note validation passed");
 }
 
@@ -287,7 +305,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
     }
 
     // If content is the same, no need to commit
-    if (currentContent === content) {
+    if (currentContent === content && currentContent !== "") {
       console.log("Deploy note content unchanged, exiting without commit");
       return;
     }
@@ -319,7 +337,7 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
     await octokit.repos.createOrUpdateFileContents(params);
     console.log(`Deploy note committed to branch: ${context.branch_name}`);
-    
+
     // Verify the file was actually created
     try {
       const { data: verifyFile } = await octokit.repos.getContent({
@@ -328,13 +346,15 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
         path: filePath,
         ref: context.branch_name,
       });
-      
+
       if (!verifyFile || !verifyFile.content) {
         throw new Error(`Deploy note file was not created at ${filePath}`);
       }
     } catch (verifyError) {
       if (verifyError.status === 404) {
-        throw new Error(`Deploy note file was not created at ${filePath} - file not found`);
+        throw new Error(
+          `Deploy note file was not created at ${filePath} - file not found`
+        );
       }
       throw verifyError;
     }
