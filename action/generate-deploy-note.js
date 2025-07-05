@@ -319,6 +319,25 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
 
     await octokit.repos.createOrUpdateFileContents(params);
     console.log(`Deploy note committed to branch: ${context.branch_name}`);
+    
+    // Verify the file was actually created
+    try {
+      const { data: verifyFile } = await octokit.repos.getContent({
+        owner: repoOwner,
+        repo: repoName,
+        path: filePath,
+        ref: context.branch_name,
+      });
+      
+      if (!verifyFile || !verifyFile.content) {
+        throw new Error(`Deploy note file was not created at ${filePath}`);
+      }
+    } catch (verifyError) {
+      if (verifyError.status === 404) {
+        throw new Error(`Deploy note file was not created at ${filePath} - file not found`);
+      }
+      throw verifyError;
+    }
 
     // Also comment on the PR
     await commentOnPR(prNumber, content);
