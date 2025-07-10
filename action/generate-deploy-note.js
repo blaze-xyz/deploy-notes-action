@@ -305,6 +305,8 @@ async function saveAndCommitDeployNote(prNumber, content, context) {
     }
 
     // If content is the same, no need to commit
+    console.log("DEBUG: currentContent:", currentContent);
+    console.log("DEBUG: content:", content);
     if (currentContent === content && currentContent !== "") {
       console.log("Deploy note content unchanged, exiting without commit");
       return;
